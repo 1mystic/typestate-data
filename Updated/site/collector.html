@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TypeState Collector</title>
+
+    <!--Fonts -->
+    <link
+        href="https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wght@8..144,300;400;500;700&family=Roboto+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+    <!-- Local Styles -->
+    <link rel="stylesheet" href="assets/css/style.css">
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+</head>
+
+<body data-theme="relaxed">
+
+    <!-- Header / Mode Switcher -->
+    <header class="app-header">
+        <a href="index.html" class="logo-link">
+            <span class="material-icons-round logo-icon">psychology</span>
+            <h1 class="logo-text">TypeState <span class="logo-sub">Collector</span></h1>
+        </a>
+
+        <!-- Switcher -->
+        <div class="mode-switcher">
+            <button onclick="setMode('relaxed')" id="btn-relaxed" class="mode-btn active ripple">
+                <span class="material-icons-round" style="font-size: 1.2em;">spa</span>
+                Relaxed
+            </button>
+            <button onclick="setMode('stressed')" id="btn-stressed" class="mode-btn ripple">
+                <span class="material-icons-round" style="font-size: 1.2em;">timer</span>
+                Stressed
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Typing Area -->
+    <main class="main-content" id="typing-container">
+
+        <!-- HUD -->
+        <div class="hud">
+            <div id="timer-display" class="hud-timer">
+                <span class="material-icons-round">warning</span>
+                <span id="countdown">60</span>s
+            </div>
+            <div class="hud-stats">
+                <div><span id="wpm">0</span> WPM</div>
+                <div><span id="acc">100</span>% ACC</div>
+            </div>
+        </div>
+
+        <!-- The Text Board -->
+        <div class="game-board" id="game-board" tabindex="0">
+            <!-- Hidden Input for Mobile Keyboard Support: Autofocus added -->
+            <input type="text" id="hidden-input" class="mobile-input-proxy" autocomplete="off" autocorrect="off"
+                autocapitalize="off" spellcheck="false" autofocus>
+
+            <div id="words" class="words-container">
+                <!-- Words injected via JS -->
+            </div>
+        </div>
+
+        <!-- Manual Finish Button -->
+        <div class="action-container">
+            <button onclick="finishSession(true)" class="btn-primary ripple">
+                <span class="material-icons-round">stop_circle</span>
+                Finish & Save Session
+            </button>
+        </div>
+
+        <!-- Instructions Overlay -->
+        <div id="overlay" class="overlay" onclick="document.getElementById('hidden-input').focus()">
+            <div class="overlay-card">
+                <span class="material-icons-round"
+                    style="font-size: 3rem; opacity: 0.5; margin-bottom: 1rem; display: block;">keyboard</span>
+                <p style="font-size: 1.125rem; font-weight: 500; opacity: 0.8;">Tap or Press any key to begin</p>
+                <p style="font-size: 0.875rem; opacity: 0.5; margin-top: 0.5rem;" id="mode-hint">Mode: Relaxed (Natural
+                    pace)</p>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Floating Action Button -->
+    <div class="fab-container" title="Download Backup JSON">
+        <button onclick="exportData()" class="btn-fab ripple">
+            <span class="material-icons-round">download</span>
+            <span id="dataset-count">0 Sessions</span>
+        </button>
+    </div>
+
+    <!-- Scripts -->
+    <script src="assets/js/firebase-config.js"></script>
+    <script src="assets/js/db.js"></script>
+    <script src="assets/js/collector.js"></script>
+</body>
+
+</html>

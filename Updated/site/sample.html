@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TypeState Collector</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wght@8..144,300;400;500;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+    
+    <style>
+        :root {
+            --md-sys-color-surface: #fdf8f6;
+            --md-sys-color-on-surface: #1c1b1f;
+            --md-sys-color-primary-container: #dce5dd; /* Default Relaxed */
+            --md-sys-color-on-primary-container: #002022;
+            --md-sys-color-outline: #79747e;
+            --font-sans: 'Roboto Flex', sans-serif;
+            --font-mono: 'Roboto Mono', monospace;
+        }
+
+        body {
+            background-color: var(--md-sys-color-surface);
+            color: var(--md-sys-color-on-surface);
+            font-family: var(--font-sans);
+            transition: background-color 0.5s ease, color 0.5s ease;
+        }
+
+        /* Relaxed Theme (Sage/Nature) */
+        body[data-theme='relaxed'] {
+            --md-sys-color-surface: #F2F6F3;
+            --md-sys-color-primary: #3D6A4B;
+            --md-sys-color-primary-container: #D1E5D6;
+            --text-highlight: #1A4228;
+            --text-dim: #98A89E;
+            --cursor-color: #3D6A4B;
+        }
+
+        /* Stressed Theme (Terracotta/Urgent) */
+        body[data-theme='stressed'] {
+            --md-sys-color-surface: #FFF0EE;
+            --md-sys-color-primary: #B3261E;
+            --md-sys-color-primary-container: #FFDAD6;
+            --text-highlight: #410E0B;
+            --text-dim: #D4A8A5;
+            --cursor-color: #B3261E;
+        }
+
+        /* Monkeytype-style Caret */
+        .caret {
+            width: 2px;
+            height: 1.5em;
+            background-color: var(--cursor-color);
+            animation: blink 1s infinite;
+            position: absolute;
+            transition: left 0.1s ease, top 0.1s ease;
+            border-radius: 2px;
+        }
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+
+        .word { margin-right: 0.4em; display: inline-block; position: relative; }
+        .letter { position: relative; transition: color 0.1s; color: var(--text-dim); }
+        .letter.correct { color: var(--text-highlight); }
+        .letter.incorrect { color: #B3261E; text-decoration: underline; }
+        .letter.active { } /* Marker for current letter */
+
+        /* Material 3 Button Ripple */
+        .ripple {
+            position: relative;
+            overflow: hidden;
+            transform: translate3d(0, 0, 0);
+        }
+        .ripple:after {
+            content: "";
+            display: block;
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0; left: 0;
+            pointer-events: none;
+            background-image: radial-gradient(circle, #000 10%, transparent 10.01%);
+            background-repeat: no-repeat;
+            background-position: 50%;
+            transform: scale(10, 10);
+            opacity: 0;
+            transition: transform .5s, opacity 1s;
+        }
+        .ripple:active:after { transform: scale(0, 0); opacity: .1; transition: 0s; }
+
+        /* Stress Inducer Animations */
+        @keyframes shake {
+            0% { transform: translate(1px, 1px) rotate(0deg); }
+            10% { transform: translate(-1px, -2px) rotate(-1deg); }
+            20% { transform: translate(-3px, 0px) rotate(1deg); }
+            30% { transform: translate(3px, 2px) rotate(0deg); }
+            40% { transform: translate(1px, -1px) rotate(1deg); }
+            50% { transform: translate(-1px, 2px) rotate(-1deg); }
+            60% { transform: translate(-3px, 1px) rotate(0deg); }
+            70% { transform: translate(3px, 1px) rotate(-1deg); }
+            80% { transform: translate(-1px, -1px) rotate(1deg); }
+            90% { transform: translate(1px, 2px) rotate(0deg); }
+            100% { transform: translate(1px, -2px) rotate(-1deg); }
+        }
+        .shake-screen { animation: shake 0.5s; border: 4px solid #B3261E; }
+    </style>
+</head>
+<body data-theme="relaxed" class="h-screen flex flex-col overflow-hidden selection:bg-emerald-100 selection:text-emerald-900">
+
+    <!-- Header / Mode Switcher -->
+    <header class="w-full max-w-5xl mx-auto p-6 flex justify-between items-center z-10">
+        <div class="flex items-center gap-3">
+            <span class="material-icons-round text-3xl opacity-50">psychology</span>
+            <h1 class="text-xl font-medium tracking-tight opacity-80">TypeState <span class="text-xs opacity-50 uppercase tracking-widest ml-2">Collector v1.0</span></h1>
+        </div>
+
+        <!-- M3 Segmented Button -->
+        <div class="bg-white/50 backdrop-blur-sm p-1 rounded-full border border-gray-200 shadow-sm flex gap-1">
+            <button onclick="setMode('relaxed')" id="btn-relaxed" class="ripple px-6 py-2 rounded-full text-sm font-medium transition-all duration-300 bg-[var(--md-sys-color-primary-container)] text-[var(--text-highlight)] shadow-sm">
+                <div class="flex items-center gap-2">
+                    <span class="material-icons-round text-sm">spa</span>
+                    Relaxed
+                </div>
+            </button>
+            <button onclick="setMode('stressed')" id="btn-stressed" class="ripple px-6 py-2 rounded-full text-sm font-medium transition-all duration-300 hover:bg-black/5 text-gray-500">
+                <div class="flex items-center gap-2">
+                    <span class="material-icons-round text-sm">timer</span>
+                    Stressed
+                </div>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Typing Area -->
+    <main class="flex-1 flex flex-col justify-center items-center relative w-full max-w-5xl mx-auto px-8" id="typing-container">
+        
+        <!-- HUD -->
+        <div class="absolute top-10 w-full flex justify-between px-4 text-[var(--text-highlight)] opacity-60 font-mono text-sm">
+            <div id="timer-display" class="hidden flex items-center gap-2 text-red-600 font-bold">
+                <span class="material-icons-round text-base">warning</span>
+                <span id="countdown">60</span>s
+            </div>
+            <div class="flex gap-8">
+                <div><span id="wpm">0</span> WPM</div>
+                <div><span id="acc">100</span>% ACC</div>
+            </div>
+        </div>
+
+        <!-- The Text Board -->
+        <div class="relative w-full text-2xl md:text-3xl leading-relaxed outline-none font-mono tracking-wide" id="game-board" tabindex="0">
+            <div id="caret" class="caret"></div>
+            <div id="words" class="break-words select-none">
+                <!-- Words injected via JS -->
+            </div>
+        </div>
+
+        <!-- Instructions Overlay -->
+        <div id="overlay" class="absolute inset-0 flex items-center justify-center bg-[var(--md-sys-color-surface)]/90 z-20 transition-opacity duration-300">
+            <div class="text-center">
+                <span class="material-icons-round text-4xl mb-4 opacity-50 animate-bounce">keyboard</span>
+                <p class="text-lg font-medium opacity-70">Press any key to begin session</p>
+                <p class="text-sm opacity-50 mt-2" id="mode-hint">Mode: Relaxed (Natural pace)</p>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Floating Action Button for Export -->
+    <div class="fixed bottom-8 right-8">
+        <button onclick="exportData()" class="ripple h-14 px-6 rounded-[16px] bg-gray-900 text-white shadow-lg hover:shadow-xl hover:scale-105 transition-all flex items-center gap-3 font-medium">
+            <span class="material-icons-round">download</span>
+            <span id="dataset-count">0 Sessions</span>
+        </button>
+    </div>
+
+    <script>
+        // --- Data ---
+        const TEXTS = {
+            relaxed: [
+                "The sunlight filtered through the leaves, painting the forest floor in dappled shades of gold and green. A gentle breeze whispered through the branches, carrying the scent of pine and damp earth. Somewhere in the distance, a stream bubbled over smooth stones, its rhythm steady and calming. There was no rush here, only the slow, deliberate pulse of nature.",
+                "Clouds drifted lazily across the azure sky, their shapes shifting and morphing in slow motion. The ocean below mirrored the vastness above, waves rolling in with a soothing rhythm that had continued for millennia. Sand warmed by the afternoon sun felt soft underfoot, grounding the moment in pure, unhurried existence."
+            ],
+            stressed: [
+                "The patient presents with acute myocardial infarction symptoms, including substernal chest pain radiating to the left arm, diaphoresis, and dyspnea. Immediate intervention requires the administration of aspirin, nitroglycerin, and morphine, followed by rapid transport to the catheterization lab for percutaneous coronary intervention. Time is critical to prevent irreversible necrosis.",
+                "System failure imminent. Error code 0x84F3 indicates a critical memory overflow in the central processing unit. Reboot sequence initiated but failed due to corrupted kernel dependencies. Please manually override the failsafe protocol by entering the hexadecimal key sequence immediately or risk total data loss. 10 seconds remaining."
+            ]
+        };
+
+        // --- State ---
+        let state = {
+            mode: 'relaxed', // 'relaxed' | 'stressed'
+            startTime: null,
+            isActive: false,
+            words: [],
+            currentWordIndex: 0,
+            currentCharIndex: 0,
+            keystrokes: [], // { key, type, time }
+            sessionId: null,
+            timer: null,
+            stressWatchdog: null,
+            lastActivity: 0
+        };
+
+        let database = []; // Stores all sessions
+
+        // --- Elements ---
+        const els = {
+            words: document.getElementById('words'),
+            caret: document.getElementById('caret'),
+            wpm: document.getElementById('wpm'),
+            acc: document.getElementById('acc'),
+            overlay: document.getElementById('overlay'),
+            btnRelaxed: document.getElementById('btn-relaxed'),
+            btnStressed: document.getElementById('btn-stressed'),
+            body: document.body,
+            datasetCount: document.getElementById('dataset-count'),
+            timerDisplay: document.getElementById('timer-display'),
+            countdown: document.getElementById('countdown'),
+            typingContainer: document.getElementById('typing-container'),
+            modeHint: document.getElementById('mode-hint')
+        };
+
+        // --- Initialization ---
+        function init() {
+            setMode('relaxed');
+            document.addEventListener('keydown', handleKeyDown);
+            document.addEventListener('keyup', handleKeyUp);
+            window.addEventListener('resize', updateCaretPosition);
+        }
+
+        function setMode(mode) {
+            state.mode = mode;
+            els.body.setAttribute('data-theme', mode);
+            
+            // UI Toggle
+            if(mode === 'relaxed') {
+                els.btnRelaxed.classList.replace('text-gray-500', 'bg-[var(--md-sys-color-primary-container)]');
+                els.btnRelaxed.classList.replace('hover:bg-black/5', 'text-[var(--text-highlight)]');
+                els.btnStressed.classList.remove('bg-[var(--md-sys-color-primary-container)]', 'text-[var(--text-highlight)]');
+                els.btnStressed.classList.add('text-gray-500', 'hover:bg-black/5');
+                els.timerDisplay.classList.add('hidden');
+                els.modeHint.innerText = "Mode: Relaxed (Natural pace, no pressure)";
+            } else {
+                els.btnStressed.classList.replace('text-gray-500', 'bg-[var(--md-sys-color-primary-container)]');
+                els.btnStressed.classList.replace('hover:bg-black/5', 'text-[var(--text-highlight)]');
+                els.btnRelaxed.classList.remove('bg-[var(--md-sys-color-primary-container)]', 'text-[var(--text-highlight)]');
+                els.btnRelaxed.classList.add('text-gray-500', 'hover:bg-black/5');
+                els.timerDisplay.classList.remove('hidden');
+                els.modeHint.innerText = "Mode: Stressed (Timer active, keep typing!)";
+            }
+            
+            resetGame();
+        }
+
+        function resetGame() {
+            state.isActive = false;
+            state.startTime = null;
+            state.currentWordIndex = 0;
+            state.currentCharIndex = 0;
+            state.keystrokes = [];
+            state.sessionId = Date.now();
+            els.overlay.style.opacity = '1';
+            
+            // Select random text
+            const textPool = TEXTS[state.mode];
+            const text = textPool[Math.floor(Math.random() * textPool.length)];
+            
+            // Render Words
+            state.words = text.split(' ');
+            els.words.innerHTML = state.words.map(word => {
+                return `<div class="word">${word.split('').map(char => `<span class="letter">${char}</span>`).join('')}</div>`;
+            }).join('');
+            
+            // Reset UI
+            const letters = document.querySelectorAll('.letter');
+            if(letters.length > 0) letters[0].classList.add('active');
+            updateCaretPosition();
+            
+            clearInterval(state.timer);
+            clearInterval(state.stressWatchdog);
+        }
+
+        function startGame() {
+            state.isActive = true;
+            state.startTime = Date.now();
+            state.lastActivity = Date.now();
+            els.overlay.style.opacity = '0';
+            
+            if (state.mode === 'stressed') {
+                startStressMechanics();
+            }
+        }
+
+        function startStressMechanics() {
+            let timeLeft = 60;
+            els.countdown.innerText = timeLeft;
+            
+            // Countdown Timer
+            state.timer = setInterval(() => {
+                timeLeft--;
+                els.countdown.innerText = timeLeft;
+                if (timeLeft <= 0) finishSession();
+            }, 1000);
+
+            // Idle Watchdog (The Stressor)
+            state.stressWatchdog = setInterval(() => {
+                const idleTime = Date.now() - state.lastActivity;
+                if (idleTime > 2000 && state.isActive) {
+                    // Visual Punishment
+                    els.body.classList.add('shake-screen');
+                    els.body.style.backgroundColor = '#ffebee'; // Flash red
+                    setTimeout(() => {
+                        els.body.classList.remove('shake-screen');
+                        els.body.style.backgroundColor = ''; 
+                    }, 500);
+                }
+            }, 500);
+        }
+
+        // --- Logic ---
+        function handleKeyDown(e) {
+            // Ignore modifiers alone
+            if (["Shift", "Control", "Alt", "Meta", "CapsLock"].includes(e.key)) return;
+            
+            // Start on first key
+            if (!state.isActive) {
+                if (e.key.length === 1) startGame(); // Only start on printable char
+                else return; 
+            }
+
+            // Log Event
+            state.keystrokes.push({
+                type: 'down',
+                key: e.code,
+                char: e.key,
+                time: Date.now()
+            });
+
+            state.lastActivity = Date.now();
+
+            const currentWordEl = els.words.children[state.currentWordIndex];
+            const currentLetterEl = currentWordEl.children[state.currentCharIndex];
+            
+            // Backspace Logic
+            if (e.key === 'Backspace') {
+                // If at start of word and not first word, go back to previous word
+                if (state.currentCharIndex === 0 && state.currentWordIndex > 0) {
+                    state.currentWordIndex--;
+                    const prevWordEl = els.words.children[state.currentWordIndex];
+                    state.currentCharIndex = prevWordEl.children.length; // Go to end of prev word
+                    // We allow "overtyping" errors, but for simplicity in this collector, 
+                    // we will just handle basic backspacing within word or across word boundary.
+                } else if (state.currentCharIndex > 0) {
+                    state.currentCharIndex--;
+                    const charToReset = currentWordEl.children[state.currentCharIndex];
+                    charToReset.className = 'letter'; // Remove correct/incorrect classes
+                }
+                updateCaretPosition();
+                return;
+            }
+
+            // Typical Typing
+            if (e.key.length === 1) { // Is printable
+                const targetChar = state.words[state.currentWordIndex][state.currentCharIndex];
+                
+                // Check boundaries
+                if (targetChar) {
+                    if (e.key === targetChar) {
+                        currentLetterEl.classList.add('correct');
+                    } else {
+                        currentLetterEl.classList.add('incorrect');
+                    }
+                    state.currentCharIndex++;
+                } else {
+                    // Extra characters (overshoot) - optional for Monkeytype clone
+                    // For this collector, we block extra chars to keep data clean or add them as errors
+                    // Let's just ignore extras for simplicity of the prototype
+                }
+
+                // Word Complete?
+                if (state.currentCharIndex >= state.words[state.currentWordIndex].length) {
+                    // Auto-space if user types space? Or require space?
+                    // Monkeytype usually requires space to move to next word.
+                }
+            }
+            
+            // Spacebar Logic
+            if (e.code === 'Space') {
+                e.preventDefault();
+                const currentWord = state.words[state.currentWordIndex];
+                
+                // If we are not at end of word, mark remaining as missed (optional)
+                // Move to next word
+                if (state.currentWordIndex < state.words.length - 1) {
+                    state.currentWordIndex++;
+                    state.currentCharIndex = 0;
+                } else {
+                    finishSession();
+                }
+            }
+
+            updateCaretPosition();
+            updateStats();
+        }
+
+        function handleKeyUp(e) {
+            if (!state.isActive) return;
+            state.keystrokes.push({
+                type: 'up',
+                key: e.code,
+                time: Date.now()
+            });
+        }
+
+        function updateCaretPosition() {
+            const wordEl = els.words.children[state.currentWordIndex];
+            let letterEl = wordEl.children[state.currentCharIndex];
+            
+            let top, left;
+
+            if (letterEl) {
+                // Cursor at specific letter
+                top = letterEl.offsetTop;
+                left = letterEl.offsetLeft;
+            } else {
+                // Cursor at end of word
+                const lastLetter = wordEl.children[wordEl.children.length - 1];
+                if (lastLetter) {
+                    top = lastLetter.offsetTop;
+                    left = lastLetter.offsetLeft + lastLetter.offsetWidth;
+                } else {
+                    // Empty word?
+                    top = wordEl.offsetTop;
+                    left = wordEl.offsetLeft;
+                }
+            }
+
+            // Offset for container padding
+            // The container 'words' is relative, so offset is local to it.
+            // We need to account for the Scroll if we had it, but here we wrap.
+            
+            els.caret.style.top = top + 4 + 'px';
+            els.caret.style.left = left + 'px';
+        }
+
+        function updateStats() {
+            const durationMin = (Date.now() - state.startTime) / 60000;
+            if (durationMin === 0) return;
+
+            // Calculate WPM roughly
+            // Standard: (All typed entries / 5) / Time
+            const wpm = Math.round((state.keystrokes.length / 5) / durationMin);
+            els.wpm.innerText = wpm;
+        }
+
+        function finishSession() {
+            state.isActive = false;
+            clearInterval(state.timer);
+            clearInterval(state.stressWatchdog);
+            
+            // Save Data
+            const sessionData = {
+                sessionId: state.sessionId,
+                mode: state.mode,
+                startTime: state.startTime,
+                endTime: Date.now(),
+                text: state.words.join(' '),
+                keystrokes: state.keystrokes
+            };
+            
+            database.push(sessionData);
+            els.datasetCount.innerText = `${database.length} Sessions`;
+            
+            // Visual Feedback
+            els.overlay.style.opacity = '1';
+            els.modeHint.innerText = "Session Complete. Data Saved to buffer.";
+            
+            setTimeout(() => {
+                resetGame();
+            }, 2000);
+        }
+
+        function exportData() {
+            if (database.length === 0) {
+                alert("No sessions recorded yet!");
+                return;
+            }
+            
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(database, null, 2));
+            const downloadAnchorNode = document.createElement('a');
+            downloadAnchorNode.setAttribute("href", dataStr);
+            downloadAnchorNode.setAttribute("download", "keystroke_dataset_" + Date.now() + ".json");
+            document.body.appendChild(downloadAnchorNode); // required for firefox
+            downloadAnchorNode.click();
+            downloadAnchorNode.remove();
+        }
+
+        init();
+    </script>
+</body>
+</html>
