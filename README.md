@@ -240,7 +240,12 @@ For complete methodology, experimental design, results, and analysis:
 
 ## License
 
-This project is released under the **MIT License** for academic research purposes.
+
+This is an **original work** by **Atharv Khare**. All use, reproduction, or distribution must include proper attribution to the original author.
+
+Released under the **MIT License** :  see [LICENSE](LICENSE) for details.
+
+**© 2025-2026 Atharv Khare. All Rights Reserved.**
 
 ---
 
