@@ -8,12 +8,21 @@ function saveSessionToCloud(sessionData) {
         return;
     }
 
-    // Add timestamp if missing
-    if (!sessionData.timestamp) {
-        sessionData.timestamp = firebase.firestore.FieldValue.serverTimestamp();
+    if (!window.auth?.currentUser) {
+        console.error("No auth user. Cannot save.");
+        showToast("Error: Not authenticated. Cannot save to cloud.", "error");
+        return;
     }
 
-    window.db.collection("type_state_sessions").add(sessionData)
+    // Add required fields for security rules
+    const dataToSave = {
+        ...sessionData,
+        userId: window.auth.currentUser.uid,
+        timestamp: sessionData.timestamp || firebase.firestore.FieldValue.serverTimestamp()
+    };
+
+    // Use 'sessions' collection to match your rules (was 'type_state_sessions')
+    window.db.collection("sessions").add(dataToSave)
         .then((docRef) => {
             console.log("Document written with ID: ", docRef.id);
             showToast("Session synced to cloud successfully!", "success");
@@ -23,6 +32,7 @@ function saveSessionToCloud(sessionData) {
             showToast("Failed to sync to cloud: " + error.message, "error");
         });
 }
+
 
 // Simple Toast Notification
 function showToast(message, type = 'info') {
