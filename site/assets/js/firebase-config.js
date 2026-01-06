@@ -1,6 +1,4 @@
 // Firebase Configuration (Compat Mode)
-// This uses the global 'firebase' object loaded from the scripts in collector.html
-
 const firebaseConfig = {
     apiKey: "AIzaSyBo7YtSGpUw8cVpZpeMn-GZYAhdPq7BA0g",
     authDomain: "typestate-3956c.firebaseapp.com",
@@ -20,6 +18,18 @@ if (typeof firebase !== 'undefined') {
     }
     // Initialize Firestore
     window.db = firebase.firestore();
+    // Initialize Auth
+    window.auth = firebase.auth();
+    
+    // Sign in anonymously on load
+    window.auth.signInAnonymously()
+        .then(() => {
+            console.log("Signed in anonymously:", window.auth.currentUser.uid);
+        })
+        .catch((error) => {
+            console.error("Anonymous auth failed:", error);
+        });
+    
     console.log("Firebase initialized successfully (Compat Mode)");
 } else {
     console.error("Firebase SDK not loaded. Ensure firestore-compat.js script is in HTML.");
